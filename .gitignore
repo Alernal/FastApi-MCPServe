@@ -1,7 +1,6 @@
 # Variables
 .env
 .env/
-.env.*
 
 # Archivos Python
 __pycache__/
