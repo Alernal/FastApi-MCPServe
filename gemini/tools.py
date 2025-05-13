@@ -1,12 +1,13 @@
 from google.genai import types
 
+
 async def get_tools_from_mcp():
     tools = [
         types.Tool(
             function_declarations=[
                 types.FunctionDeclaration(
                     name="account_sql_query",
-                    description = """
+                    description="""
                         Ejecuta operaciones SQL o comandos especiales en la tabla de cuentas financieras (`accounts`).
 
                         ESQUEMA DE LA TABLA:
@@ -40,18 +41,67 @@ async def get_tools_from_mcp():
                         - Da respuestas claras, orientadas al usuario.
                         - No muestres directamente los IDs de los registros, prefiere usar nombres o descripciones.
                         - No manipules el user_id de los registros, el usuario es y sera ese ID.
-                    """, 
+                    """,
                     parameters={
                         "type": "object",
                         "properties": {
                             "query_text": {
                                 "type": "string",
-                                "description": "Consulta SQL o comando para realizar operaciones en la tabla accounts."
+                                "description": "Consulta SQL o comando para realizar operaciones en la tabla accounts.",
                             }
                         },
-                        "required": ["query_text"]
-                    }
-                )
+                        "required": ["query_text"],
+                    },
+                ),
+                types.FunctionDeclaration(
+                    name="user_sql_tool",
+                    description="""
+                        Ejecuta consultas de lectura y actualización en la tabla de usuarios (`users`).
+
+                        ESQUEMA DE LA TABLA:
+                        - id: INTEGER PRIMARY KEY (autoincremental)
+                        - name: TEXT (nombre del usuario)
+                        - email: TEXT (correo electrónico)
+
+                        FUNCIONALIDADES ACEPTADAS:
+
+                        1. **SQL SELECT directo**  
+                        Consulta datos del usuario con comandos SQL.  
+                        Ejemplo:  
+                        `SELECT * FROM users WHERE id = 1`
+
+                        2. **SQL UPDATE directo**  
+                        Puedes actualizar la información de un usuario con comandos SQL.  
+                        Ejemplo:  
+                        `UPDATE users SET name = 'Carlos' WHERE id = 2`
+
+                        ⚠️ **Restricción importante:**  
+                        - **No está permitido modificar el campo `email`.**  
+                        Cualquier intento de hacerlo será rechazado.  
+                        - Solo se deben modificar campos como `name`, `is_active`, `phone`, etc.  
+                        Asegúrate de validar esto antes de generar la consulta.
+
+                        CONSIDERACIONES:
+                        - No se permite `INSERT`, `DELETE`, ni comandos simplificados como `get` o `update {json}`.
+                        - Solo se puede editar información de usuarios existentes mediante SQL válido.
+                        - Si el `user_id` no existe o la sintaxis es inválida, se debe reportar claramente.
+                        - No alteres el ID del usuario ni cambies su identidad.
+
+                        RESPUESTAS ESPERADAS:
+                        - Las respuestas deben ser legibles, claras y orientadas al usuario.
+                        - En caso de error, indica la causa exacta y sugiere una posible solución.
+                    """,
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "query_text": {
+                                "type": "string",
+                                "description": "Consulta SQL válida de tipo SELECT o UPDATE sobre la tabla `users`.",
+                            }
+                        },
+                        "required": ["query_text"],
+                    },
+                ),
             ]
         )
     ]

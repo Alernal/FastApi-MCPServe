@@ -1,20 +1,14 @@
 from typing import Dict, Any, List, Optional, Union
-import mysql.connector
 from mysql.connector import Error
 import json
 import logging
-from datetime import datetime
+from core.database import get_db_connection
 
 # Configuración de logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-MYSQL_CONFIG = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': 'Qwer123',
-    'database': 'diblin'
-}
+conn = get_db_connection()
 
 # Constantes
 VALID_TYPES = ["cash", "bank", "credit", "other"]
@@ -50,15 +44,6 @@ def validate_account_data(data: Dict[str, Any]) -> None:
                 raise AccountDBError("El campo is_active debe ser un valor booleano")
         else:
             raise AccountDBError("El campo is_active debe ser un valor booleano")
-
-def get_db_connection():
-    """Establece y devuelve una conexión a la base de datos MySQL"""
-    try:
-        conn = mysql.connector.connect(**MYSQL_CONFIG)
-        return conn
-    except Error as e:
-        logger.error(f"Error al conectar a MySQL: {e}")
-        raise AccountDBError(f"Error al conectar a MySQL: {e}")
 
 
 def execute_sql_query(sql: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
