@@ -1,0 +1,15 @@
+# Variables
+.env
+.env/
+.env.*
+
+# Archivos Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Entornos virtuales
+.venv/
+venv/
+mcp/
+.mcp
