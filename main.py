@@ -8,7 +8,7 @@ app = FastAPI()
 class ChatMessage(BaseModel):
     message: str
 
-@app.post("/chat_with_gemini")
+@app.post("/assistant")
 async def chat_with_gemini(message: ChatMessage):
     response = await generate_content_from_gemini(message.message)
     return {"response": response}

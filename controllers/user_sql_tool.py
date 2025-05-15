@@ -1,7 +1,7 @@
 from typing import Dict, Any
-from mysql.connector import Error
 import json
 import logging
+from mysql.connector import Error, connect
 from core.database import get_db_connection
 
 # Configuración de logging
@@ -9,47 +9,46 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 class UserDBError(Exception):
-    """Excepción personalizada para errores relacionados con la base de datos de usuarios"""
+    """Excepción personalizada para errores de base de datos relacionados con usuarios."""
     pass
 
 def validate_update_sql(sql: str) -> None:
     """
-    Valida que el SQL UPDATE no modifique campos no permitidos.
-    
+    Valida que la sentencia SQL UPDATE no intente modificar campos restringidos.
+
     Args:
-        sql: Consulta SQL tipo UPDATE.
-    
+        sql (str): Sentencia SQL tipo UPDATE.
+
     Raises:
-        UserDBError: Si intenta modificar campos restringidos como 'email'.
+        UserDBError: Si intenta modificar campos no permitidos como 'email'.
     """
     sql_lower = sql.lower()
     if "update" not in sql_lower:
-        raise UserDBError("Solo se permite ejecutar sentencias UPDATE o SELECT.")
-    
-    if "email" in sql_lower:
-        raise UserDBError("No está permitido modificar el campo 'email' del usuario.")
+        raise UserDBError("Solo se permiten sentencias UPDATE o SELECT.")
+
+    restricted_fields = ["email"]
+    for field in restricted_fields:
+        if field in sql_lower:
+            raise UserDBError(f"No está permitido modificar el campo '{field}' del usuario.")
 
 def execute_sql_query(sql: str) -> Dict[str, Any]:
     """
-    Ejecuta una consulta SELECT y retorna los resultados.
-    
+    Ejecuta una consulta SELECT sobre la base de datos.
+
     Args:
-        sql: Consulta SQL SELECT válida.
-    
+        sql (str): Consulta SQL SELECT.
+
     Returns:
-        Diccionario con los resultados o error.
+        Dict[str, Any]: Resultado de la consulta.
     """
+    if not sql.strip().lower().startswith("select"):
+        raise UserDBError("Solo se permiten consultas SELECT para lectura de datos.")
+
     try:
-        if not sql.strip().lower().startswith("select"):
-            raise UserDBError("Solo se permiten consultas SELECT para lectura de datos.")
-
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute(sql)
-        results = cursor.fetchall()
-        cursor.close()
-        conn.close()
-
+        with get_db_connection() as conn:
+            with conn.cursor(dictionary=True) as cursor:
+                cursor.execute(sql)
+                results = cursor.fetchall()
         return {
             "operation": "select",
             "success": True,
@@ -65,27 +64,26 @@ def execute_sql_query(sql: str) -> Dict[str, Any]:
 
 def execute_sql_update(sql: str) -> Dict[str, Any]:
     """
-    Ejecuta una sentencia SQL UPDATE (sin permitir cambios en email).
-    
+    Ejecuta una sentencia UPDATE sobre la base de datos.
+
     Args:
-        sql: Consulta SQL UPDATE válida.
-    
+        sql (str): Sentencia SQL UPDATE.
+
     Returns:
-        Diccionario con el resultado de la operación.
+        Dict[str, Any]: Resultado de la actualización.
     """
+    validate_update_sql(sql)
+
     try:
-        validate_update_sql(sql)
-
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        affected = cursor.execute(sql)
-        conn.commit()
-
-        return {
-            "operation": "update",
-            "success": True,
-            "affected_rows": cursor.rowcount
-        }
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(sql)
+                conn.commit()
+                return {
+                    "operation": "update",
+                    "success": True,
+                    "affected_rows": cursor.rowcount
+                }
     except (Error, UserDBError) as e:
         logger.error(f"Error ejecutando UPDATE: {e}")
         return {
@@ -93,22 +91,17 @@ def execute_sql_update(sql: str) -> Dict[str, Any]:
             "success": False,
             "error": str(e)
         }
-    finally:
-        try:
-            cursor.close()
-            conn.close()
-        except:
-            pass
 
-def user_sql_tool(query_text: str) -> str:
+def user_sql_tool(query_text: str, token: Any = None) -> str:
     """
     Ejecuta una consulta SQL SELECT o UPDATE sobre la tabla `users`.
-    
+
     Args:
-        query_text: Consulta SQL válida (SELECT o UPDATE).
-    
+        query_text (str): Consulta SQL.
+        token (Any): Token de autenticación (no utilizado actualmente).
+
     Returns:
-        Resultado serializado en JSON.
+        str: Resultado de la operación en formato JSON.
     """
     try:
         query_lower = query_text.strip().lower()

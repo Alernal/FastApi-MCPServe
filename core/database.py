@@ -1,18 +1,20 @@
 import mysql.connector
 from mysql.connector import Error
-
-# Puedes mover este logger si lo tienes definido en otro archivo
+import os
+from dotenv import load_dotenv
 import logging
+
 logger = logging.getLogger(__name__)
+load_dotenv()
 
 class AccountDBError(Exception):
     pass
 
 MYSQL_CONFIG = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': '',
-    'database': 'mcp-serve'
+    'host': os.getenv('MYSQL_HOST'),
+    'user': os.getenv('MYSQL_USER'),
+    'password': os.getenv('MYSQL_PASSWORD'),
+    'database': os.getenv('MYSQL_DATABASE')
 }
 
 def get_db_connection():

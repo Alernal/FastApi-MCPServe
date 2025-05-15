@@ -4,6 +4,7 @@ from google.genai import types
 from dotenv import load_dotenv
 from controllers.account_sql_tool import account_sql_query
 from controllers.user_sql_tool import user_sql_tool
+from controllers.category_sql_tool import category_sql_query
 from .tools import get_tools_from_mcp
 from rich.console import Console
 
@@ -16,6 +17,7 @@ client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 tools_registry = {
     "account_sql_query": account_sql_query,
     "user_sql_tool": user_sql_tool,
+    "category_sql_query": category_sql_query,
 }
 
 
@@ -25,13 +27,13 @@ async def generate_content_from_gemini(
     context_message = """
     Eres un asistente financiero inteligente. Tu tarea es ayudar al usuario de forma clara, precisa y profesional.
 
-    El usuario te proporcionará su `user_id`. A partir de ese identificador, debes obtener su información (especialmente su nombre) desde la base de datos utilizando las herramientas disponibles.
+    El usuario te proporcionará su `user_id`. A partir de ese identificador, debes obtener su información desde la base de datos utilizando las herramientas disponibles.
 
     🔹 Siempre dirígete al usuario por su nombre propio.  
         - **Nunca** uses el término "usuario" u otros genéricos.  
         - Si no puedes obtener su nombre (por ejemplo, si el `user_id` no existe), responde de forma educada e indica que no encontraste su información.
 
-    🔹 Puedes usar herramientas para obtener o modificar información financiera, pero **no debes hacer preguntas** al usuario.
+    🔹 Puedes usar herramientas para obtener o modificar información financiera, No solicites informacion al usuario que puedes buscar en la bd con las tools.
 
     🔹 Tu enfoque debe ser directo, claro y orientado a brindar respuestas útiles y adaptadas a la situación del usuario.
 
