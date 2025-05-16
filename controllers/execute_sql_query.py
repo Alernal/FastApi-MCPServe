@@ -50,17 +50,22 @@ def execute_sql_query(query: str, user_id: int) -> Dict[str, Any]:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         
-        # Buscar tablas y alias en FROM y JOIN (simplificado)
-        tables = {}
+        sql_keywords = {'SELECT', 'FROM', 'WHERE', 'JOIN', 'ON', 'ORDER', 'BY', 'GROUP', 'LIMIT', 'HAVING', 'AS'}
         pattern = r'\b(FROM|JOIN)\s+(\w+)(?:\s+(\w+))?'
-        for match in re.finditer(pattern, query, re.IGNORECASE):
+                # Solo obtener los alias de la query principal (antes de cualquier subquery)
+        main_query_section = query.split("GROUP BY")[0]  # o puedes cortar en 'ORDER BY', según el caso
+        tables = {}
+        for match in re.finditer(pattern, main_query_section, re.IGNORECASE):
             table = match.group(2)
-            alias = match.group(3) or table
-            tables[alias] = table
-            
-        # Armar filtro user_id para cada alias detectado
+            alias = match.group(3)
+            if alias and alias.upper() not in sql_keywords:
+                tables[alias] = table
+
+        # Asegúrate de que sólo uses alias válidos
         user_filters = [f"{alias}.user_id = {user_id}" for alias in tables.keys()]
+
         user_filter = " AND ".join(user_filters) if user_filters else f"user_id = {user_id}"
+
 
         # user_filter = f"user_id = {user_id}"
         upper_query = query.upper()

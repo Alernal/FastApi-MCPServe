@@ -21,45 +21,45 @@ tools_registry = {
 
 # Contexto detallado para el asistente financiero
 FINANCIAL_ASSISTANT_CONTEXT = """
-Eres un asistente financiero, tu tarea es brindar analisis y recomendaciones financieras a los usuarios.
-Puedes consultar la informacion financiera del usuario mediante la herramienta 'execute_sql_query' la cual 
-debes ejecutar sin necesidad de pedir el permiso al usuario.
+Eres un asistente financiero inteligente encargado de brindar análisis detallados y recomendaciones personalizadas a los usuarios. Tu objetivo es ayudarles a comprender, optimizar y planificar mejor su situación financiera, utilizando como base su información personal disponible en la base de datos.
 
-IMPORTANTE: 
-- El Gestor de base de datos es MYSQL, solo genera consultas SQL.
-- Si el usuario no especifica que te esta mencionando una cuenta, una categoria, cualquier cosa, primero consulta en la bd buscando ese termino, 
-si lo encuentras ya sabe a que se refiere el usuario, asi podemos ser mas dinamicos.
+Tienes acceso directo a una base de datos MySQL que contiene las siguientes tablas: Users, Accounts, Categories, Transactions, Assets, Goals, Debts y Payments. Puedes consultar estos datos mediante la herramienta execute_sql_query sin necesidad de pedir autorización adicional. Además, puedes usar get_time_info para obtener la zona horaria de Bogotá cuando trabajes con fechas.
 
-El modelo de base de datos es el siguiente: Users (user_id, name, email) puedes consultar informacion del usuario logueado haciendo un simple select.
-Accounts (id, user_id, name, type [BANCO, DIGITAL, EFECTIVO, INVERSION, PRESTAMO, OTRO], currency, created_at) Puedes obtener todas las cuentas del usuario.
-Categories (id, user_id, name, type [Ingreso,Gasto], parent_category_id) Puedes obtener todas las categorias del usuario.
-Transactions (id, user_id, account_id, category_id, amount, date, type [Transferencia, Ingreso, Gasto], target_account_id) Puedes obtener todas las transacciones del usuario.
+Tu acceso a los datos está permitido y es total, por lo tanto:
+- Puedes hacer consultas SQL complejas y eficientes, utilizando correctamente JOINs entre tablas cuando sea necesario.
+- Evita hacer múltiples consultas pequeñas por separado; prioriza traer toda la información útil de una sola vez si eso te permite dar un mejor análisis.
+- Puedes traer todos los campos necesarios, no te limites a COUNT o SUM cuando requieras un entendimiento completo.
+- No incluyas el campo user_id en tus condiciones SQL, ya que será agregado automáticamente por el sistema.
 
-Con una solo secuencia puedes obtener todas las transactions con sus relaciones de accounts y categories.
+En todo análisis, tu tarea es interpretar los datos con profundidad, detectar patrones, riesgos y oportunidades, y entregar recomendaciones claras, útiles y accionables. Tu lenguaje debe ser profesional, cálido y enfocado en empoderar al usuario para tomar mejores decisiones financieras.
 
-Si el usuario te da filtro por fecha, usa 'get_time_info' para obtener la zona horaria de bogota y puedes usarla de referencia.
+Cuando realices cálculos financieros, matemáticos o estadísticos, sigue estas reglas estrictamente:
 
-No debes nombrar nada de 'ID' o 'user_id' en tus respuestas, ya que el usuario no tiene por que saberlo.
+1. Nunca inventes datos ni asumas valores que no provengan explícitamente de la base de datos o del usuario.
+2. Siempre asegúrate de que los porcentajes que representen proporciones no excedan el 100%.
+3. Si tienes múltiples formas de medir (como frecuencia vs. monto), especifica cuál estás utilizando y mantén consistencia.
+4. Redondea porcentajes a dos decimales como máximo. Si es necesario, ajusta el último valor para que el total no exceda el 100%.
+5. Si no tienes información suficiente, indícalo con claridad. Es preferible mostrar una limitación que entregar una conclusión incorrecta.
+6. Nunca generes datos hipotéticos, ni supongas comportamientos financieros sin evidencia concreta en los datos.
 
-cumple los requerimientos del usuario, si te pide reportes, analisis, estadisticas, etc. debes hacer un analisis profundo de la informacion y brindarle una respuesta completa.
-
-el user_id no es necesario que lo agregues, internamente la secuencias que se ejecuten ya lo tienen.
+Sigue siempre estas reglas y directrices al pie de la letra. Tu enfoque debe ser analítico, confiable y centrado en aportar valor real al usuario.
 """
 
 
 async def generate_content_from_gemini(
-    message: str, user_id: int, max_tool_calls=5, max_retries_per_tool=2
+    message: str, user_id: int, max_tool_calls=10, max_retries_per_tool=2
 ):
     # Usamos el contexto financiero avanzado
     context_message = FINANCIAL_ASSISTANT_CONTEXT
 
+    message_replic = await improve_user_message(message)
+    console.print(message_replic)
     contents = [
         types.Content(
-            role="model", parts=[types.Part(text=context_message)]
-        ), 
-        types.Content(
-            role="user", parts=[types.Part(text=message)]
+            role="model",
+            parts=[types.Part(text=context_message.strip())],
         ),
+        types.Content(role="user", parts=[types.Part(text=message_replic)]),
     ]
 
     tools = await get_tools_from_mcp()
@@ -94,7 +94,9 @@ async def generate_content_from_gemini(
                 function_call = part.function_call
                 function_name = function_call.name
                 function_args = function_call.args
-                
+
+                console.print(function_args)
+
                 # Registrar la herramienta invocada
                 tool_key = f"{function_name}:{str(function_args)}"
                 tool_retry_counts[tool_key] = tool_retry_counts.get(tool_key, 0) + 1
@@ -195,3 +197,42 @@ async def generate_content_from_gemini(
 
     # Devolvemos la respuesta final
     return response.text
+
+
+async def improve_user_message(raw_message: str) -> str:
+    improvement_prompt = f"""
+Actúa como un profesional en redacción y contexto conversacional.
+Tu tarea es reformular el mensaje original que va dirijido a una IA para que sea claro, profesional, preciso y directo,
+manteniendo el mismo propósito y contexto del original. No agregues explicaciones, comentarios ni repitas el mensaje original.
+Si concideras que el usuario no dio a entender de manera correcta su idea, tarta de interpretarla y mejorar.
+
+Agrega el mensaje de abajo fijo sin modificar:
+*Recuerda que puedes usar las herramientas (TE PERMITO LAS DOS HERRAMIENTAS HABILITADAS, NO ME LO CONSULTES) para consultar mi información y dirigirte a mí por mi nombre, siguiendo todas las indicaciones dadas.
+Además, si te pedí esto, consulta directamente y entrégame lo solicitado sin pausas innecesarias. Si necesitas mucha información de una o varias tablas, NO te limites a usar múltiples consultas separadas ni solo SUM o COUNT. 
+Tienes permiso para hacer consultas grandes, completas, usando JOINs entre las tablas que necesites. Usa una sola consulta si es posible y asegúrate de traer todos los campos relevantes. No te quedes con datos parciales: tu objetivo es comprender mi situación completa y entregarme lo mejor posible.”
+
+Devuelve únicamente el mensaje corregido final, incluyendo esa instrucción.
+
+Mensaje original:
+\"\"\"{raw_message}\"\"\"
+"""
+
+    # Preparamos los contenidos para la solicitud
+    contents = [types.Content(role="user", parts=[types.Part(text=improvement_prompt)])]
+
+    # Configuración para obtener una salida consistente y enfocada
+    config = types.GenerateContentConfig(
+        temperature=0.2,
+    )
+
+    # Solicitud al modelo
+    response = genai.Client(
+        api_key=os.environ.get("GEMINI_API_KEY")
+    ).models.generate_content(
+        model="gemini-2.0-flash",
+        contents=contents,
+        config=config,
+    )
+
+    # Retornamos solo el texto corregido
+    return response.text.strip()
