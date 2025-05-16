@@ -4,6 +4,7 @@ from google.genai import types
 from dotenv import load_dotenv
 from .tools import get_tools_from_mcp
 from controllers.execute_sql_query import execute_sql_query
+from controllers.get_time_info import get_time_info
 from rich.console import Console
 import json
 
@@ -15,6 +16,7 @@ client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 # Registro de herramientas
 tools_registry = {
     "execute_sql_query": execute_sql_query,
+    "get_time_info": get_time_info,
 }
 
 # Contexto detallado para el asistente financiero
@@ -23,13 +25,19 @@ Eres un asistente financiero, tu tarea es brindar analisis y recomendaciones fin
 Puedes consultar la informacion financiera del usuario mediante la herramienta 'execute_sql_query' la cual 
 debes ejecutar sin necesidad de pedir el permiso al usuario.
 
+IMPORTANTE: 
+- El Gestor de base de datos es MYSQL, solo genera consultas SQL.
+- Si el usuario no especifica que te esta mencionando una cuenta, una categoria, cualquier cosa, primero consulta en la bd buscando ese termino, 
+si lo encuentras ya sabe a que se refiere el usuario, asi podemos ser mas dinamicos.
+
 El modelo de base de datos es el siguiente: Users (user_id, name, email) puedes consultar informacion del usuario logueado haciendo un simple select.
-Accounts (id, user_id, name, type, currency, created_at) Puedes obtener todas las cuentas del usuario.
-Categories (id, user_id, name, type, parent_category_id) Puedes obtener todas las categorias del usuario.
-Transactions (id, user_id, account_id, category_id, amount, date, type, target_account_id) Puedes obtener todas las transacciones del usuario.
+Accounts (id, user_id, name, type [BANCO, DIGITAL, EFECTIVO, INVERSION, PRESTAMO, OTRO], currency, created_at) Puedes obtener todas las cuentas del usuario.
+Categories (id, user_id, name, type [Ingreso,Gasto], parent_category_id) Puedes obtener todas las categorias del usuario.
+Transactions (id, user_id, account_id, category_id, amount, date, type [Transferencia, Ingreso, Gasto], target_account_id) Puedes obtener todas las transacciones del usuario.
 
 Con una solo secuencia puedes obtener todas las transactions con sus relaciones de accounts y categories.
 
+Si el usuario te da filtro por fecha, usa 'get_time_info' para obtener la zona horaria de bogota y puedes usarla de referencia.
 
 No debes nombrar nada de 'ID' o 'user_id' en tus respuestas, ya que el usuario no tiene por que saberlo.
 

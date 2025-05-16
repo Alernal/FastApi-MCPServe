@@ -20,6 +20,20 @@ async def get_tools_from_mcp():
                     }
                 }
             ]
+        ),
+        types.Tool(
+            function_declarations=[
+                {
+                    "name": "get_time_info",
+                    "description": "Obtienes la fecha actual mas informacion de la zona horaria de Bogota.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                        },
+                        "required": []
+                    }
+                }
+            ]
         )
     ]
     return tools

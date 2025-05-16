@@ -49,9 +49,20 @@ def execute_sql_query(query: str, user_id: int) -> Dict[str, Any]:
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
+        
+        # Buscar tablas y alias en FROM y JOIN (simplificado)
+        tables = {}
+        pattern = r'\b(FROM|JOIN)\s+(\w+)(?:\s+(\w+))?'
+        for match in re.finditer(pattern, query, re.IGNORECASE):
+            table = match.group(2)
+            alias = match.group(3) or table
+            tables[alias] = table
+            
+        # Armar filtro user_id para cada alias detectado
+        user_filters = [f"{alias}.user_id = {user_id}" for alias in tables.keys()]
+        user_filter = " AND ".join(user_filters) if user_filters else f"user_id = {user_id}"
 
-        # Use t.user_id for disambiguation
-        user_filter = f"t.user_id = {user_id}"
+        # user_filter = f"user_id = {user_id}"
         upper_query = query.upper()
 
         if "WHERE" in upper_query:
